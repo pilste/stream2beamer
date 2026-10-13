@@ -1,0 +1,14 @@
+{
+  "Port": 9000,
+  "LatenzMs": 120,
+  "AtemLatenzMs": 120,
+  "Player": "mpv",
+  "Ton": false,
+  "Monitor": "auto",
+  "LaptopIP": "auto",
+  "StreamKey": "beamer",
+  "FesteIP": false,
+  "FesteIPAdresse": "192.168.10.10",
+  "FesteIPPraefix": 24,
+  "FesteIPAdapter": "auto"
+}

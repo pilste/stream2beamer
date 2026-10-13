@@ -1,0 +1,18 @@
+# Fremdprogramme: werden nicht mitgeliefert
+pc/stream2beamer/mpv/*.exe
+pc/stream2beamer/mpv/*.com
+pc/stream2beamer/mpv/*.dll
+pc/stream2beamer/mpv/doc/
+pc/stream2beamer/mpv/mpv/
+pc/stream2beamer/mpv/portable_config/
+pc/stream2beamer/ffmpeg/
+node_modules/
+
+# entsteht zur Laufzeit / persoenlich
+pc/stream2beamer/ATEM-Dateien/
+pc/stream2beamer/netz-sicherung.json
+pc/stream2beamer/Diagnose-Bericht.txt
+pc/stream2beamer/config.json.*
+protokolle/
+pi/ATEM-Dateien/
+*.log

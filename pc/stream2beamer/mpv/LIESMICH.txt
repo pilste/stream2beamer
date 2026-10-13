@@ -1,0 +1,10 @@
+Hier gehoert mpv fuer Windows hinein (wird nicht mitgeliefert).
+
+Benoetigt: mpv.exe und mpv.com aus einem Windows-Build MIT libsrt (SRT-Unterstuetzung).
+Getestet mit: https://github.com/shinchiro/mpv-winbuild-cmake/releases
+              Datei mpv-x86_64-<Datum>-git-<Hash>.7z
+
+Pruefen, ob SRT enthalten ist: In stream2beamer "Testbild senden" (nach "FFmpeg nachladen").
+Kommt das Testbild, kann mpv SRT.
+
+Lizenz von mpv: GPL (https://mpv.io). mpv ist nicht Teil dieses Projekts.

@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141619">
+<title>stream2beamer Bedienung</title>
+<style>
+  :root {
+    --bg: #141619; --panel: #1d2024; --line: #2c3036; --text: #e9ecef; --muted: #9aa3ad;
+    --btn: #2a2e34; --btn-hover: #343941; --pgm: #e5383b; --pvw: #2fbf71; --accent: #f4a259; --warn: #f2c14e;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: 12px 16px 32px; max-width: 760px; margin: 0 auto; -webkit-tap-highlight-color: transparent; }
+  header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .pill { font-size: 13px; padding: 3px 10px; border-radius: 999px; background: var(--btn); color: var(--muted); }
+  .pill.ok { background: #1f3b2b; color: #9be3b8; }
+  .pill.bad { background: #4a1f22; color: #ffb3b5; }
+  .pill.air { background: var(--pgm); color: #fff; font-weight: 700; }
+  nav { display: flex; gap: 6px; margin: 4px 0 14px; }
+  nav button { flex: 1; }
+  nav button.on { background: var(--accent); color: #1a1a1a; font-weight: 700; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 12px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+  .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+  button { appearance: none; border: 1px solid var(--line); background: var(--btn); color: var(--text); border-radius: 8px;
+           min-height: 52px; padding: 6px 8px; font: inherit; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+  button:hover { background: var(--btn-hover); }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .pgm.on { background: var(--pgm); border-color: var(--pgm); color: #fff; }
+  .pvw.on { background: var(--pvw); border-color: var(--pvw); color: #08130c; }
+  .trans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .trans .on { background: var(--warn); color: #1a1a1a; }
+  .air-btn { width: 100%; min-height: 64px; font-size: 20px; }
+  .air-btn.on { background: var(--pgm); border-color: var(--pgm); color: #fff; }
+  .targets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .targets .on { outline: 2px solid var(--accent); }
+  .info { font-size: 14px; color: var(--muted); margin-top: 8px; }
+  .ch { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+  .ch:first-of-type { border-top: 0; }
+  .ch .name { font-weight: 600; }
+  .ch .db { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; text-align: right; min-width: 64px; }
+  .ch input[type=range] { grid-column: 1 / -1; width: 100%; height: 36px; accent-color: var(--accent); }
+  .mix { grid-column: 1 / -1; display: flex; gap: 6px; }
+  .mix button { flex: 1; min-height: 40px; font-size: 14px; }
+  .mix .on { background: var(--accent); color: #1a1a1a; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 728px; margin: 0 auto; background: #4a1f22; color: #ffd6d7;
+           padding: 10px 12px; border-radius: 8px; display: none; }
+  .still { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+  .still:first-child { border-top: 0; }
+  .still .nr { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .still button { min-height: 40px; font-size: 14px; }
+  .still .on { background: var(--accent); color: #1a1a1a; }
+  .still .del { color: #ffb3b5; }
+  .up { display: grid; gap: 10px; }
+  .up label { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+  .up button.on { background: var(--accent); color: #1a1a1a; }
+  .up input[type=text], .up select { font: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--btn); color: var(--text); }
+  .up input[type=file] { color: var(--text); }  #histChart .grid { stroke: var(--line); stroke-width: 1; }
+  #histChart .lbl { fill: var(--muted); font-size: 12px; }
+  #histChart .line { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+  #histChart .bad { fill: var(--pgm); }
+  .okline { color: #9be3b8; font-weight: 600; }
+  .badline { color: #ffb3b5; font-weight: 600; }  .off-btn { width: 100%; color: #ffb3b5; border-color: #6b2a2d; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="model">ATEM</h1>
+  <span id="conn" class="pill bad">nicht verbunden</span>
+  <span id="air" class="pill">Stream aus</span>
+</header>
+
+<nav>
+  <button id="tabBild" class="on" type="button">Bild</button>
+  <button id="tabTon" type="button">Ton</button>
+  <button id="tabRec" type="button">Aufnahme</button>
+  <button id="tabMedia" type="button">Media</button>
+</nav>
+
+<div id="bild">
+  <section>
+    <h2>Programm</h2>
+    <div class="row" id="pgm"></div>
+  </section>
+  <section>
+    <h2>Vorschau</h2>
+    <div class="row" id="pvw"></div>
+  </section>
+  <section>
+    <h2>Übergang</h2>
+    <div class="trans">
+      <button type="button" data-cmd="cut">CUT</button>
+      <button type="button" data-cmd="auto" id="autoBtn">AUTO</button>
+      <button type="button" data-cmd="ftb" id="ftbBtn">FTB</button>
+    </div>
+  </section>
+  <section>
+    <h2>Stream</h2>
+    <div class="targets" id="targets"></div>
+    <button type="button" class="air-btn" id="airBtn">ON AIR</button>
+    <div class="info" id="streamInfo"></div>
+  </section>
+  <section>
+    <h2>Raspberry Pi</h2>
+    <button type="button" id="offBtn" class="off-btn">Pi herunterfahren</button>
+    <div class="info" id="offInfo">Vor dem Ausschalten des Stroms. Danach ist der Beamer-Ausgang und diese Seite weg.</div>
+  </section></div>
+
+<div id="ton" class="hidden">
+  <section>
+    <h2>Quellen</h2>
+    <div id="audio"></div>
+  </section>
+  <section>
+    <h2>Summe</h2>
+    <div id="master"></div>
+  </section>
+</div>
+
+<div id="rec" class="hidden">
+  <section>
+    <h2>Aufnahme</h2>
+    <button type="button" class="air-btn" id="recBtn">AUFNAHME STARTEN</button>
+    <div class="info" id="recInfo"></div>
+  </section>
+  <section>
+    <h2>Verlauf</h2>
+    <div class="info" id="histInfo">Noch keine Aufnahme seit dem Start der Seite.</div>
+    <svg id="histChart" viewBox="0 0 600 200" role="img" aria-label="Restzeit auf dem Datenträger über die Aufnahmedauer" style="width:100%;height:auto;margin-top:8px;display:block"></svg>
+    <div class="info" id="histErr"></div>
+  </section>  <section>
+    <h2>Datenträger</h2>
+    <div id="disks"></div>
+    <button type="button" id="diskBtn" class="hidden" style="margin-top:8px;width:100%">Laufwerk wechseln</button>
+  </section>
+  <section>
+    <h2>Einstellungen</h2>
+    <div class="up">
+      <label>Dateiname <input type="text" id="recName" maxlength="63"></label>
+      <button type="button" id="recNameBtn">Dateiname übernehmen</button>
+      <div class="mix" id="isoBox"></div>
+      <div class="info">ISO: zusätzlich jede Kamera einzeln aufnehmen (plus DaVinci-Resolve-Projekt).</div>
+    </div>
+  </section>
+  <section>
+    <h2>Qualität (Aufnahme und Stream)</h2>
+    <div class="up" id="qualBox"></div>
+    <div class="info">Gilt für Stream und Aufnahme gemeinsam. Nur änderbar, wenn beides gestoppt ist. Für den Pi 1 am Beamer reicht „Mittel“.</div>
+  </section>
+</div>
+<div id="media" class="hidden">
+  <section>
+    <h2>Standbilder im ATEM</h2>
+    <div id="stills"></div>
+    <div class="info hidden" id="upHint">Neue Bilder bitte mit ATEM Software Control hochladen (Medien). Der Pi 1 ist dafür zu schwach.</div>
+  </section>
+  <section id="upSection">
+    <h2>Bild hochladen</h2>
+    <div class="up">
+      <input type="file" id="upFile" accept="image/*">
+      <label>Speicherplatz <select id="upSlot"></select></label>
+      <label>Name <input type="text" id="upName" maxlength="63" placeholder="z. B. Pause"></label>
+      <button type="button" id="upBtn">Hochladen</button>
+      <div class="info" id="upInfo">Das Bild wird auf die Auflösung des ATEM gebracht (schwarze Ränder, nichts abgeschnitten).</div>
+    </div>
+  </section>
+</div>
+<div id="toast"></div>
+<script src="/yuv.js"></script>
+
+<script>
+'use strict'
+let S = {}, TARGETS = {}, QUALITIES = {}
+const $ = (id) => document.getElementById(id)
+const GAIN_MIN = -10000, SLIDER_MIN = -60, SLIDER_MAX = 10
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.style.display = 'block'
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none' }, 4000)
+}
+async function act(cmd) {
+  try {
+    const r = await fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) })
+    const j = await r.json()
+    if (!j.ok) toast(j.error || 'Fehler')
+  } catch (e) { toast('Keine Verbindung zum Pi') }
+}
+
+// Pegel: Hundertstel dB <-> Schieber in dB (ganz links = stumm)
+const toSlider = (g) => (g == null || g <= SLIDER_MIN * 100 ? SLIDER_MIN : Math.min(SLIDER_MAX, g / 100))
+const fromSlider = (v) => (Number(v) <= SLIDER_MIN ? GAIN_MIN : Math.round(Number(v) * 100))
+const dbText = (g) => (g == null ? '' : g <= SLIDER_MIN * 100 ? '−∞ dB' : (g / 100).toFixed(1).replace('.', ',') + ' dB')
+
+function button(label, cls, on, onclick) {
+  const b = document.createElement('button')
+  b.type = 'button'; b.textContent = label; b.className = cls + (on ? ' on' : ''); b.onclick = onclick
+  return b
+}
+
+function renderBild() {
+  const inputs = S.inputs || []
+  for (const [id, kind] of [['pgm', 'program'], ['pvw', 'preview']]) {
+    const box = $(id); box.replaceChildren()
+    for (const i of inputs) box.append(button(i.short, id, S[kind] === i.id, () => act({ cmd: kind, input: i.id })))
+  }
+  $('autoBtn').classList.toggle('on', !!S.inTransition)
+  $('ftbBtn').classList.toggle('on', !!(S.ftb && (S.ftb.black || S.ftb.running)))
+
+  const st = S.stream || {}
+  const tg = $('targets'); tg.replaceChildren()
+  for (const [k, t] of Object.entries(TARGETS)) {
+    const b = button(t.label, '', st.target === k, () => act({ cmd: 'target', name: k }))
+    b.disabled = !!st.onAir
+    tg.append(b)
+  }
+  const air = $('airBtn')
+  air.textContent = st.onAir ? (st.state === 'verbindet' ? 'VERBINDET …' : 'STREAM STOPPEN') : 'ON AIR'
+  air.classList.toggle('on', !!st.onAir)
+  air.onclick = () => act({ cmd: 'stream', on: !st.onAir })
+
+  let info = st.service ? `Ziel: ${st.service}` : 'Kein Ziel eingestellt'
+  if (st.duration && st.onAir) info += ` · ${st.duration}`
+  if (st.target === 'pi') info += S.pi && S.pi.receiving ? ' · Pi empfängt Bild' : ' · Pi wartet auf Bild'
+  if (st.target === 'laptop') info += ' · am Laptop stream2beamer oder OBS starten'
+  $('streamInfo').textContent = info
+}
+
+function channel(name, gain, onGain, mix) {
+  const d = document.createElement('div'); d.className = 'ch'
+  const n = document.createElement('div'); n.className = 'name'; n.textContent = name
+  const db = document.createElement('div'); db.className = 'db'; db.textContent = dbText(gain)
+  const r = document.createElement('input')
+  r.type = 'range'; r.min = SLIDER_MIN; r.max = SLIDER_MAX; r.step = 0.5; r.value = toSlider(gain)
+  r.setAttribute('aria-label', 'Lautstärke ' + name)
+  r.oninput = () => { r.dataset.busy = '1'; db.textContent = dbText(fromSlider(r.value)) }
+  r.onchange = () => { onGain(fromSlider(r.value)); setTimeout(() => { delete r.dataset.busy }, 600) }
+  d.append(n, db, r)
+  if (mix) d.append(mix)
+  return d
+}
+
+function renderTon() {
+  // nicht neu aufbauen, solange ein Schieber bewegt wird
+  if (document.querySelector('input[type=range][data-busy]')) return
+  const box = $('audio'); box.replaceChildren()
+  for (const a of S.audio || []) {
+    const mix = document.createElement('div'); mix.className = 'mix'
+    for (const o of ['ein', 'aus', 'afv']) {
+      if (!a.options.includes(o)) continue
+      mix.append(button(o === 'afv' ? 'AFV' : o === 'ein' ? 'Ein' : 'Aus', '', a.mix === o, () => act({ cmd: 'mix', input: a.input, source: a.source, option: o })))
+    }
+    const label = a.source.startsWith('-') ? a.name : `${a.name} (${a.source})`
+    box.append(channel(label, a.gain, (g) => act({ cmd: 'fader', input: a.input, source: a.source, gain: g }), mix))
+  }
+  if (!(S.audio || []).length) box.textContent = 'Keine Fairlight-Tonquellen gemeldet.'
+  const m = $('master'); m.replaceChildren()
+  if (S.master) m.append(channel('Master', S.master.gain, (g) => act({ cmd: 'master', gain: g })))
+}
+
+function render() {
+  $('model').textContent = S.model || 'ATEM'
+  const c = $('conn'); c.textContent = S.connected ? 'verbunden' : 'nicht verbunden'; c.className = 'pill ' + (S.connected ? 'ok' : 'bad')
+  const st = S.stream || {}
+  const a = $('air'); a.textContent = st.onAir ? (st.state === 'verbindet' ? 'verbindet …' : 'ON AIR ' + (st.duration || '')) : 'Stream aus'
+  a.className = 'pill' + (st.onAir ? ' air' : '')
+  document.querySelectorAll('#bild button:not(#offBtn), #ton button').forEach((b) => { if (!S.connected) b.disabled = true })
+  renderBild(); renderTon(); renderRec(); renderMedia()
+  if (!S.connected) document.querySelectorAll('#bild button:not(#offBtn), #ton button, #ton input, #rec button, #rec input, #media button').forEach((b) => { b.disabled = true })
+}
+
+document.querySelectorAll('[data-cmd]').forEach((b) => { b.onclick = () => act({ cmd: b.dataset.cmd }) })
+const TABS = [['tabBild', 'bild'], ['tabTon', 'ton'], ['tabRec', 'rec'], ['tabMedia', 'media']]
+for (const [tab, view] of TABS) {
+  $(tab).onclick = () => {
+    setTimeout(loadHistory, 0)
+    for (const [t2, v2] of TABS) { $(t2).classList.toggle('on', t2 === tab); $(v2).classList.toggle('hidden', v2 !== view) }
+  }
+}
+
+const hm = (sec) => (sec == null ? 'unbekannt' : `${Math.floor(sec / 3600)} h ${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')} min`)
+function renderRec() {
+  const r = S.rec
+  const btn = $('recBtn'), info = $('recInfo')
+  if (!r) { btn.disabled = true; info.textContent = 'Dieser ATEM meldet keine Aufnahme.'; return }
+  btn.textContent = r.on ? (r.state === 'stoppt' ? 'STOPPT …' : 'AUFNAHME STOPPEN') : 'AUFNAHME STARTEN'
+  btn.classList.toggle('on', r.on)
+  btn.onclick = () => act({ cmd: 'rec', on: !r.on })
+  let t = r.on ? `Läuft · ${r.duration}` : 'Aus'
+  if (r.timeLeft != null) t += ` · Restzeit ${hm(r.timeLeft)}`
+  if (r.error) t += ` · ${r.error}`
+  t += ` · ISO ${r.iso ? 'an' : 'aus'}`
+  info.textContent = t
+
+  const dk = $('disks'); dk.replaceChildren()
+  for (const d of r.disks) {
+    const row = document.createElement('div'); row.className = 'info'
+    row.textContent = `${d.active ? '▶ ' : ''}${d.name}: ${d.status}, frei ${hm(d.time)}`
+    dk.append(row)
+  }
+  if (!r.disks.length) dk.textContent = 'Kein Datenträger am USB-C-Anschluss des ATEM.'
+  $('diskBtn').classList.toggle('hidden', !r.canSwitch)
+  $('diskBtn').onclick = () => act({ cmd: 'rec-disk' })
+
+  const nm = $('recName')
+  if (document.activeElement !== nm) nm.value = r.filename
+  nm.disabled = r.on
+  $('recNameBtn').disabled = r.on
+  $('recNameBtn').onclick = () => act({ cmd: 'rec-name', name: nm.value })
+
+  const iso = $('isoBox'); iso.replaceChildren()
+  for (const [lbl, val] of [['ISO an', true], ['ISO aus', false]]) {
+    const b = button(lbl, '', r.iso === val, () => act({ cmd: 'rec-iso', on: val })); b.disabled = r.on; iso.append(b)
+  }
+
+  const qb = $('qualBox'); qb.replaceChildren()
+  const locked = r.on || !!(S.stream && S.stream.onAir)
+  for (const [k, q] of Object.entries(QUALITIES)) {
+    const b = button(q.label, '', S.quality && S.quality.preset === k, () => act({ cmd: 'quality', preset: k })); b.disabled = locked; qb.append(b)
+  }
+  if (S.quality && !S.quality.preset) {
+    const x = document.createElement('div'); x.className = 'info'
+    x.textContent = `Aktuell eigene Einstellung: ${(S.quality.bitrates[1] / 1e6).toFixed(1).replace('.', ',')} Mbit/s`
+    qb.append(x)
+  }
+}
+// ---------- Verlauf der Aufnahme ----------
+const fmtClock = (t) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+const fmtMin = (ms) => { const m = Math.floor(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min` }
+function svgEl(tag, attrs, text) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag)
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v)
+  if (text != null) e.textContent = text
+  return e
+}
+async function loadHistory() {
+  if ($('rec').classList.contains('hidden')) return
+  let h
+  try { h = await (await fetch('/api/rec-history')).json() } catch (e) { return }
+  // Zeitstempel des Pi auf die Uhr dieses Geraets verschieben (Pi-Uhr geht ohne Internet falsch)
+  const off = Date.now() - (h.now || Date.now())
+  if (h.startedAt) h.startedAt += off
+  for (const p of h.points) p.t += off
+  for (const e of h.errors) e.t += off
+  const info = $('histInfo'), err = $('histErr'), svg = $('histChart')
+  svg.replaceChildren()
+  if (!h.startedAt) { info.textContent = 'Noch keine Aufnahme seit dem Start der Seite.'; err.textContent = ''; return }
+  const pts = h.points.filter((p) => p.left != null)
+  const last = h.points[h.points.length - 1]
+  const running = S.rec && S.rec.on
+  const endT = running ? Date.now() : (last ? last.t : h.startedAt)
+  info.textContent = `${running ? 'Läuft' : 'Beendet'} · Start ${fmtClock(h.startedAt)} · Dauer ${fmtMin(endT - h.startedAt)}` +
+    (last && last.left != null ? ` · Restzeit ${fmtMin(last.left * 1000)}` : '')
+  err.replaceChildren()
+  const line = document.createElement('div')
+  if (!h.errors.length) { line.className = 'okline'; line.textContent = '✓ Keine Fehler seit Aufnahmestart' }
+  else { line.className = 'badline'; line.textContent = '✗ ' + h.errors.map((e) => `${fmtClock(e.t)} ${e.err}`).join(' · ') }
+  err.append(line)
+
+  // Achsen: x = Zeit seit Start, y = Restzeit in Minuten
+  const W = 600, H = 200, L = 46, R = 10, T = 10, B = 26
+  const t0 = h.startedAt, t1 = Math.max(endT, t0 + 60000)
+  const maxLeft = Math.max(60, ...pts.map((p) => p.left / 60))
+  const x = (t) => L + ((t - t0) / (t1 - t0)) * (W - L - R)
+  const y = (m) => T + (1 - m / maxLeft) * (H - T - B)
+  for (const f of [0, 0.5, 1]) {
+    const m = maxLeft * f
+    svg.append(svgEl('line', { class: 'grid', x1: L, x2: W - R, y1: y(m), y2: y(m) }))
+    svg.append(svgEl('text', { class: 'lbl', x: L - 6, y: y(m) + 4, 'text-anchor': 'end' }, `${Math.round(m)}′`))
+  }
+  svg.append(svgEl('text', { class: 'lbl', x: L, y: H - 6 }, fmtClock(t0)))
+  svg.append(svgEl('text', { class: 'lbl', x: W - R, y: H - 6, 'text-anchor': 'end' }, fmtClock(t1)))
+  if (pts.length > 1) svg.append(svgEl('polyline', { class: 'line', points: pts.map((p) => `${x(p.t).toFixed(1)},${y(p.left / 60).toFixed(1)}`).join(' ') }))
+  for (const e of h.errors) svg.append(svgEl('circle', { class: 'bad', cx: x(e.t), cy: H - B, r: 5 }))
+}
+setInterval(loadHistory, 10000)
+function renderMedia() {
+  $('upSection').classList.toggle('hidden', !S.uploadEnabled)
+  $('upHint').classList.toggle('hidden', !!S.uploadEnabled || !S.connected)
+  const md = S.media
+  const box = $('stills'); box.replaceChildren()
+  if (!md) { box.textContent = 'Keine Daten'; return }
+  const p = md.player || {}
+  for (const s of md.stills.filter((x) => x.used)) {
+    const row = document.createElement('div'); row.className = 'still'
+    const n = document.createElement('div')
+    const nr = document.createElement('span'); nr.className = 'nr'; nr.textContent = (s.index + 1) + '.'
+    n.append(nr, document.createTextNode(s.name))
+    const inMp = p.type === 'still' && p.still === s.index
+    row.append(n,
+      button(inMp ? 'in MP1' : 'In MP1', '', inMp, () => act({ cmd: 'mp-still', index: s.index })),
+      button('Löschen', 'del', false, () => { if (confirm(`Bild ${s.index + 1} „${s.name}“ im ATEM löschen?`)) act({ cmd: 'still-clear', index: s.index }) }))
+    box.append(row)
+  }
+  if (!box.children.length) box.textContent = 'Keine Standbilder im ATEM.'
+  // Speicherplaetze: freie zuerst, belegte mit Hinweis "ersetzen"
+  const sel = $('upSlot'), keep = sel.value
+  if (document.activeElement !== sel) {
+    sel.replaceChildren()
+    for (const s of [...md.stills.filter((x) => !x.used), ...md.stills.filter((x) => x.used)]) {
+      const o = document.createElement('option'); o.value = s.index
+      o.textContent = `${s.index + 1}` + (s.used ? ` – ersetzt „${s.name}“` : ' – frei')
+      sel.append(o)
+    }
+    if (keep !== '' && [...sel.options].some((o) => o.value === keep)) sel.value = keep
+  }
+}
+
+$('upFile').onchange = () => {
+  const f = $('upFile').files[0]
+  if (f && !$('upName').value) $('upName').value = f.name.replace(/\.[^.]+$/, '').slice(0, 63)
+}
+$('upBtn').onclick = async () => {
+  const f = $('upFile').files[0], r = S.resolution
+  if (!f) return toast('Bitte zuerst ein Bild auswählen')
+  if (!r) return toast('Auflösung des ATEM unbekannt')
+  const btn = $('upBtn'); btn.disabled = true
+  try {
+    $('upInfo').textContent = 'Bild wird umgerechnet …'
+    const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' })
+    const cv = document.createElement('canvas'); cv.width = r.width; cv.height = r.height
+    const g = cv.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, r.width, r.height)
+    const k = Math.min(r.width / bmp.width, r.height / bmp.height)
+    const w = Math.round(bmp.width * k), h = Math.round(bmp.height * k)
+    g.drawImage(bmp, Math.round((r.width - w) / 2), Math.round((r.height - h) / 2), w, h)
+    const data = rgbaToYuv422(r.width, r.height, g.getImageData(0, 0, r.width, r.height).data)
+    $('upInfo').textContent = 'Wird an den ATEM übertragen, das dauert auf dem Pi 1 etwas …'
+    const q = new URLSearchParams({ index: $('upSlot').value, name: $('upName').value })
+    const res = await fetch('/api/still?' + q, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: data })
+    const j = await res.json()
+    if (!j.ok) throw new Error(j.error || 'Fehler')
+    $('upInfo').textContent = `Fertig: Bild ${j.index + 1} „${j.name}“ ist im ATEM.`
+    $('upFile').value = ''; $('upName').value = ''
+  } catch (e) {
+    $('upInfo').textContent = 'Nicht hochgeladen: ' + e.message
+  } finally { btn.disabled = false }
+}
+$('offBtn').onclick = async () => {
+  if (!confirm('Raspberry Pi jetzt herunterfahren?\n\nDer Beamer-Ausgang und diese Seite sind danach weg. Strom erst ziehen, wenn die grüne LED am Pi nicht mehr blinkt (ca. 30 s).')) return
+  try {
+    const j = await (await fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'poweroff' }) })).json()
+    if (!j.ok) return toast(j.error || 'Fehler')
+    $('offBtn').disabled = true
+    $('offInfo').textContent = 'Pi fährt herunter. In etwa 30 Sekunden (grüne LED aus) kann der Strom weg.'
+  } catch (e) { toast('Keine Verbindung zum Pi') }
+}
+fetch('/api/state').then((r) => r.json()).then((j) => { TARGETS = j.targets || {}; QUALITIES = j.qualities || {}; S = j; render() }).catch(() => {})
+function listen() {
+  const es = new EventSource('/api/events')
+  es.onmessage = (e) => { S = JSON.parse(e.data); render() }
+  es.onerror = () => { $('conn').textContent = 'Pi nicht erreichbar'; $('conn').className = 'pill bad' }
+}
+listen()
+</script>
+</body>
+</html>
