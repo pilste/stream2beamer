@@ -4,16 +4,22 @@ Läuft auf dem Raspberry Pi. Jedes Gerät im ATEM-Netz (Kabel am Switch oder WLA
 
 - **Bild:** Programm und Vorschau umschalten, CUT, AUTO, FTB
 - **Stream:** Ziel wählen (Beamer am Pi oder Laptop über SRT), ON AIR starten und stoppen, Laufzeit, Anzeige ob der Pi Bild bekommt
-- **Ton:** Fairlight-Pegel je Quelle (Kameras, Mikro 1/2), Ein/Aus/AFV, Master. −10 dB auf der Seite entsprechen −10,0 in Software Control (geprüft).
+- **Ton (wie ein Mischpult-Kanalzug):** je Quelle (Kameras, Mikro 1/2) und Master:
+  - Fader, Ein/Aus/AFV. −10 dB auf der Seite entsprechen −10,0 in Software Control (geprüft).
+  - **Live-Pegel** links/rechts mit Spitzenmarke. Läuft nur, solange der Reiter „Ton“ offen ist: Der ATEM schickt ~170 Pegelmeldungen/s, das kostet auf dem Pi 1 rund 12 % CPU.
+  - **Equalizer** (6 Bänder): Ein/Aus, Filterform, Frequenz, Pegel, Güte, **„Standard“** (Werkseinstellung) und **Presets**: Sprache (Hand-/Pultmikro), Ansteckmikro, tiefe Stimme, Kamera-Mikro/Raumton, Musik/Einspieler, Brummen (50 Hz). Die Werte sind Startpunkte nach gängigen Empfehlungen für Sprache, nach Gehör nachregeln. Hinweise auf der Seite, wenn eine Einstellung nicht wirken kann (Band aus, Pegel 0 dB).
+  - **Kanal:** Gain, Balance, Verzögerung, Mikro/Line, Aufholverstärkung, Expander/Gate, Kompressor, Limiter, „Dynamik Standard“ (setzt Werte zurück **und** schaltet alle Stufen aus), Preset „Sprache“ (Kompressor 3:1 ab −18 dB, Limiter −3 dB). Master: Kompressor, Limiter, „Ton folgt Schwarzblende“.
+  - Alle Reglergrenzen sind am ATEM Mini Pro ISO gemessen.
+  - Rückfragen laufen über eine Leiste auf der Seite, nicht über Browser-Dialoge. Der Anmelde-Browser von Android (Captive Portal) zeigt keine Dialoge an und wertet sie als „Abbrechen“.
 - **Aufnahme:** Start/Stopp, Laufzeit, Restzeit, Datenträger mit Status, Laufwerk wechseln (bei zwei Platten), Dateiname, ISO an/aus, Qualität (Mittel 6 / Hoch 9 / Sehr hoch 12 Mbit/s). Die Qualität ist die Encoder-Bitrate der Stream-Einstellung. Der ATEM Mini Pro nimmt das Programm mit dieser Bitrate auf (gemessen: Mittel 4,5 Mbit/s, Sehr hoch 8,6 Mbit/s). Die ISO-Spuren haben eine eigene Bitrate von 20–30 Mbit/s. Einstellungen nur bei gestoppter Aufnahme bzw. gestopptem Stream änderbar.
 - **Pi herunterfahren** (Reiter Bild, ganz unten, mit Rückfrage): Die Seite legt `/run/stream2beamer-bedienseite/poweroff` an, der Root-Dienst `stream2beamer-poweroff.path` ruft dann `systemctl poweroff` auf. Der Strom kann weg, sobald die grüne LED nicht mehr blinkt (ca. 30 s). Funktioniert auch, wenn der ATEM nicht verbunden ist.
 - **Media:** Standbilder im ATEM sehen, in MP1 legen, löschen. **Hochladen erst ab Pi 2/3** (ungetestet). Auf dem Pi 1 trennte der ATEM jeden Upload nach 9 bis 41 s, deshalb ist es dort abgeschaltet. Bilder dann mit Software Control hochladen.
 
-**Automatisch öffnen (Captive Portal):** Nach dem Verbinden mit dem WLAN „stream2beamer“ meldet das Gerät „Im Netzwerk anmelden“ und öffnet die Seite. iPhone und Windows meist von selbst, Android per Mitteilung zum Antippen. dnsmasq leitet nur die Prüfadressen der Betriebssysteme auf den Pi (`/etc/dnsmasq.d/stream2beamer-portal.conf`), der Server leitet fremde Hostnamen per 302 auf http://beamer.lan/ um.
+**Automatisch öffnen (Captive Portal):** Nach dem Verbinden mit dem WLAN „stream2beamer“ meldet das Gerät „Im Netzwerk anmelden“ und öffnet die Seite. iPhone und Windows meist von selbst, Android per Mitteilung zum Antippen. Im Pi-WLAN beantwortet dnsmasq jeden Namen mit dem Pi (`/etc/dnsmasq.d/stream2beamer-portal.conf`, `address=/#/…`), weil manche Geräte eigene Prüfadressen verwenden. Der Server leitet fremde Hostnamen per 302 auf http://beamer.lan/ um. Der Laptop am Kabel bekommt vom Pi keinen DNS-Server und behält so sein Internet über WLAN.
 
 **Handy:** Das Pi-WLAN hat kein Internet, viele Android-Handys schicken dann alles über mobile Daten. Bei „Kein Internet, trotzdem verbunden bleiben?“ **Ja** wählen, sonst „WLAN+“ bzw. „Intelligente Netzwerkumschaltung“ ausschalten oder mobile Daten kurz aus. Die Adresse mit `http://` eintippen und als Lesezeichen oder auf den Startbildschirm legen.
 
-Für Einrichtung, EQ, Dynamics, Grafiken usw. bleibt ATEM Software Control nötig.
+Für Einrichtung, Grafiken, Makros, Kameraeinstellungen usw. bleibt ATEM Software Control nötig.
 
 ## Installation (Pi braucht einmal Internet)
 

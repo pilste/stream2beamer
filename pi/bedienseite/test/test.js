@@ -96,6 +96,101 @@ t('Browser-Umrechnung byte-gleich mit atem-connection (Zufallsbild 1920x1080 und
 	}
 })
 
+console.log('3b. Equalizer')
+// Baender wie vom echten ATEM gelesen (15.10.2026)
+const EQ = { enabled: true, gain: 0, bands: [
+	{ bandEnabled: false, supportedShapes: [1, 2, 16, 32], shape: 16, supportedFrequencyRanges: [1], frequencyRange: 1, frequency: 46, gain: 0, qFactor: 71 },
+	{ bandEnabled: true, supportedShapes: [1, 4, 8, 32], shape: 1, supportedFrequencyRanges: [1, 2, 4, 8], frequencyRange: 1, frequency: 49, gain: 0, qFactor: 80 },
+	{ bandEnabled: true, supportedShapes: [1, 4, 8, 32], shape: 4, supportedFrequencyRanges: [1, 2, 4, 8], frequencyRange: 2, frequency: 171, gain: 0, qFactor: 230 },
+] }
+const eqState = { ...state, fairlight: { inputs: { 1: { sources: { '-65280': { properties: state.fairlight.inputs[1].sources['-65280'].properties, equalizer: EQ } } } },
+	master: { properties: { faderGain: 0 }, equalizer: EQ } } }
+const se = lib.summarize(eqState, targets, {})
+const T1 = { input: 1, source: '-65280' }
+t('EQ im Zustand: Baender, Formen mit Namen', () => {
+	assert.strictEqual(se.audio[0].eq.bands.length, 3)
+	assert.deepStrictEqual(se.audio[0].eq.bands[2], { band: 2, on: true, shape: 4, shapes: [{ id: 1, name: 'Tiefen-Kuhschwanz' }, { id: 4, name: 'Glocke' }, { id: 8, name: 'Kerbe' }, { id: 32, name: 'Höhen-Kuhschwanz' }], ranges: [1, 2, 4, 8], range: 2, freq: 171, gain: 0, q: 230 })
+	assert.strictEqual(se.master.eq.enabled, true)
+})
+t('EQ aus', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq', ...T1, enabled: false }, se, targets), ['setFairlightAudioMixerSourceProps', 1, '-65280', { equalizerEnabled: false }]))
+t('Band: Frequenz 2,5 kHz waehlt Bereich MidHigh', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq-band', ...T1, band: 2, freq: 2500 }, se, targets),
+	['setFairlightAudioMixerSourceEqualizerBandProps', 1, '-65280', 2, { frequency: 2500, frequencyRange: 4 }]))
+t('Band 1 (nur ein Bereich): kein Bereich mitgeschickt', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq-band', ...T1, band: 0, freq: 80, on: true }, se, targets),
+	['setFairlightAudioMixerSourceEqualizerBandProps', 1, '-65280', 0, { bandEnabled: true, frequency: 80 }]))
+t('Band: Pegel und Guete', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq-band', ...T1, band: 2, gain: -350, q: 140 }, se, targets),
+	['setFairlightAudioMixerSourceEqualizerBandProps', 1, '-65280', 2, { gain: -350, qFactor: 140 }]))
+t('Band: Pegel ueber +20 dB abgelehnt', () => assert.throws(() => lib.translate({ cmd: 'eq-band', ...T1, band: 2, gain: 2500 }, se, targets)))
+t('Band: Filterform nicht erlaubt (Tiefpass an Band 3)', () => assert.throws(() => lib.translate({ cmd: 'eq-band', ...T1, band: 2, shape: 2 }, se, targets), /Filterform/))
+t('Master-EQ Band', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq-band', source: 'master', band: 1, gain: 300 }, se, targets),
+	['setFairlightAudioMixerMasterEqualizerBandProps', 1, { gain: 300 }]))
+t('Master-EQ aus', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq', source: 'master', enabled: false }, se, targets), ['setFairlightAudioMixerMasterProps', { equalizerEnabled: false }]))
+
+t('Band 3 auf 171 Hz zurueck: Bereich MidLow bleibt (Fehler vom 15.10.2026)', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq-band', ...T1, band: 2, freq: 171 }, se, targets),
+	['setFairlightAudioMixerSourceEqualizerBandProps', 1, '-65280', 2, { frequency: 171 }]))
+t('Band 1 nur Low: 1000 Hz wird auf 395 Hz begrenzt', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq-band', ...T1, band: 0, freq: 1000 }, se, targets),
+	['setFairlightAudioMixerSourceEqualizerBandProps', 1, '-65280', 0, { frequency: 395 }]))
+t('EQ Standard (Reset)', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq-reset', ...T1 }, se, targets), ['setFairlightAudioMixerSourceEqualizerReset', 1, '-65280', { equalizer: true }]))
+t('Master-EQ Standard', () => assert.deepStrictEqual(lib.translate({ cmd: 'eq-reset', source: 'master' }, se, targets), ['setFairlightAudioMixerMasterEqualizerReset', { equalizer: true }]))
+t('EQ-Preset Sprache: EQ an + je Band ein Befehl, Bereiche passend', () => {
+	const [m, list] = lib.translate({ cmd: 'eq-preset', ...T1, preset: 'sprache' }, se, targets)
+	assert.strictEqual(m, '__multi')
+	assert.deepStrictEqual(list[0], ['setFairlightAudioMixerSourceProps', 1, '-65280', { equalizerEnabled: true, equalizerGain: 0 }])
+	assert.strictEqual(list.length, 4) // Testzustand hat nur 3 Baender
+	assert.deepStrictEqual(list[1], ['setFairlightAudioMixerSourceEqualizerBandProps', 1, '-65280', 0, { bandEnabled: true, shape: 16, frequency: 100, gain: 0, qFactor: 71 }])
+	assert.deepStrictEqual(list[3], ['setFairlightAudioMixerSourceEqualizerBandProps', 1, '-65280', 2, { bandEnabled: false, shape: 4, frequency: 800, gain: 0, qFactor: 140 }])
+})
+t('alle EQ-Presets passen in die Baender des ATEM (Formen und Frequenzbereiche)', () => {
+	const real = { ...EQ, bands: [EQ.bands[0], EQ.bands[1], EQ.bands[2], { ...EQ.bands[2], frequencyRange: 4, frequency: 798 }, { ...EQ.bands[1], shape: 32, frequencyRange: 8, frequency: 7260 },
+		{ bandEnabled: false, supportedShapes: [1, 2, 16, 32], shape: 2, supportedFrequencyRanges: [8], frequencyRange: 8, frequency: 12900, gain: 0, qFactor: 71 }] }
+	const s6 = lib.summarize({ ...eqState, fairlight: { ...eqState.fairlight, inputs: { 1: { sources: { '-65280': { properties: eqState.fairlight.inputs[1].sources['-65280'].properties, equalizer: real } } } } } }, targets, {})
+	for (const k of Object.keys(lib.PRESET_LABELS.eq)) {
+		const [, list] = lib.translate({ cmd: 'eq-preset', ...T1, preset: k }, s6, targets)
+		assert.strictEqual(list.length, 7, k)
+		for (const [, , , band, p] of list.slice(1)) assert.ok(p.shape !== undefined, `${k} Band ${band + 1}: Form nicht erlaubt`)
+	}
+})
+
+console.log('3c. Kanalzug und Dynamik')
+const dynState = { ...eqState, fairlight: { inputs: {
+	1301: { properties: { activeInputLevel: 1, supportedInputLevels: [1, 2] }, sources: { '-65280': {
+		properties: { faderGain: 0, mixOption: 2, supportedMixOptions: [1, 2], gain: 0, balance: 0, framesDelay: 0, maxFramesDelay: 8 },
+		dynamics: { makeUpGain: 0, expander: { expanderEnabled: false, gateEnabled: false, threshold: -4500, range: 1800, ratio: 110, attack: 140, hold: 0, release: 9300 },
+			compressor: { compressorEnabled: false, threshold: -3500, ratio: 200, attack: 140, hold: 0, release: 9300 }, limiter: { limiterEnabled: false, threshold: -1200, attack: 71, hold: 0, release: 9300 } } } } } },
+	master: { properties: { faderGain: 0, followFadeToBlack: false }, dynamics: { makeUpGain: 0, compressor: { compressorEnabled: false, threshold: -3500, ratio: 200, attack: 140, hold: 0, release: 9300 }, limiter: { limiterEnabled: false, threshold: -1200, attack: 71, hold: 0, release: 9300 } } } } }
+const sd = lib.summarize(dynState, targets, {})
+const M1 = { input: 1301, source: '-65280' }
+t('Kanalzug im Zustand: Mikro mit Mikro/Line, Verzoegerung bis 8 Bilder', () => {
+	assert.deepStrictEqual(sd.audio[0].strip, { inGain: 0, balance: 0, delay: 0, maxDelay: 8, level: 1, levels: [1, 2] })
+	assert.deepStrictEqual(sd.audio[0].dyn.cmp, { on: false, threshold: -3500, ratio: 200, range: undefined, attack: 140, hold: 0, release: 9300 })
+	assert.strictEqual(sd.master.ftbFollow, false); assert.strictEqual(sd.master.dyn.exp, undefined)
+})
+t('Gain +6 dB, Balance links, Verzoegerung 2', () => assert.deepStrictEqual(lib.translate({ cmd: 'strip', ...M1, inGain: 600, balance: -5000, delay: 2 }, sd, targets),
+	['setFairlightAudioMixerSourceProps', 1301, '-65280', { gain: 600, balance: -5000, framesDelay: 2 }]))
+t('Gain ueber +6 dB abgelehnt', () => assert.throws(() => lib.translate({ cmd: 'strip', ...M1, inGain: 700 }, sd, targets)))
+t('Verzoegerung ueber Maximum abgelehnt', () => assert.throws(() => lib.translate({ cmd: 'strip', ...M1, delay: 9 }, sd, targets)))
+t('Mikro auf Line', () => assert.deepStrictEqual(lib.translate({ cmd: 'input-level', ...M1, level: 2 }, sd, targets), ['setFairlightAudioMixerInputProps', 1301, { activeInputLevel: 2 }]))
+t('Kompressor an, 4:1 ab -20 dB', () => assert.deepStrictEqual(lib.translate({ cmd: 'dyn', ...M1, stage: 'cmp', on: true, ratio: 400, threshold: -2000 }, sd, targets),
+	['setFairlightAudioMixerSourceCompressorProps', 1301, '-65280', { compressorEnabled: true, threshold: -2000, ratio: 400 }]))
+t('Gate', () => assert.deepStrictEqual(lib.translate({ cmd: 'dyn', ...M1, stage: 'exp', on: true, gate: true }, sd, targets),
+	['setFairlightAudioMixerSourceExpanderProps', 1301, '-65280', { expanderEnabled: true, gateEnabled: true }]))
+t('Limiter-Schwelle unter -30 dB abgelehnt', () => assert.throws(() => lib.translate({ cmd: 'dyn', ...M1, stage: 'lim', threshold: -3100 }, sd, targets)))
+t('Dynamik Standard: Werte zuruecksetzen UND alle Stufen aus', () => assert.deepStrictEqual(lib.translate({ cmd: 'dyn-reset', ...M1 }, sd, targets), ['__multi', [
+	['setFairlightAudioMixerSourceDynamicsReset', 1301, '-65280', { dynamics: true, expander: true, compressor: true, limiter: true }],
+	['setFairlightAudioMixerSourceProps', 1301, '-65280', { makeUpGain: 0 }],
+	['setFairlightAudioMixerSourceExpanderProps', 1301, '-65280', { expanderEnabled: false, gateEnabled: false }],
+	['setFairlightAudioMixerSourceCompressorProps', 1301, '-65280', { compressorEnabled: false }],
+	['setFairlightAudioMixerSourceLimiterProps', 1301, '-65280', { limiterEnabled: false }]]]))
+t('Dynamik-Preset Sprache: Aufholverstaerkung, Kompressor, Limiter', () => {
+	const [m, list] = lib.translate({ cmd: 'dyn-preset', ...M1, preset: 'sprache' }, sd, targets)
+	assert.strictEqual(m, '__multi'); assert.strictEqual(list.length, 3)
+	assert.deepStrictEqual(list[1], ['setFairlightAudioMixerSourceCompressorProps', 1301, '-65280', { compressorEnabled: true, threshold: -1800, ratio: 300, attack: 500, hold: 0, release: 15000 }])
+})
+t('Master: Kompressor ja, Expander nein', () => {
+	assert.deepStrictEqual(lib.translate({ cmd: 'dyn', source: 'master', stage: 'cmp', on: true }, sd, targets), ['setFairlightAudioMixerMasterCompressorProps', { compressorEnabled: true }])
+	assert.throws(() => lib.translate({ cmd: 'dyn', source: 'master', stage: 'exp', on: true }, sd, targets), /Dynamik-Stufe/)
+})
+t('Master folgt Schwarzblende', () => assert.deepStrictEqual(lib.translate({ cmd: 'master-ftb', source: 'master', on: true }, sd, targets), ['setFairlightAudioMixerMasterProps', { followFadeToBlack: true }]))
+
 console.log('4. Aufnahme')
 // Zustand wie vom echten ATEM gelesen (13.10.2026): kein Datentraeger, ISO an, Stream on air mit 4,5/6 Mbit/s
 const recState = {

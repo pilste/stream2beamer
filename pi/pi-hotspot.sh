@@ -85,7 +85,7 @@ cat >/etc/dnsmasq.d/stream2beamer.conf <<EOF
 interface=br0
 bind-dynamic
 dhcp-range=192.168.10.100,192.168.10.150,255.255.255.0,12h
-${LAPTOP_CABLE_MAC:+dhcp-host=${LAPTOP_CABLE_MAC},192.168.10.10}
+${LAPTOP_CABLE_MAC:+dhcp-host=${LAPTOP_CABLE_MAC},set:kabel,192.168.10.10}
 ${LAPTOP_WLAN_MACS:+dhcp-host=${LAPTOP_WLAN_MACS},192.168.10.11}
 # kein Gateway: der Laptop behaelt sein Internet ueber andere Wege
 dhcp-option=3
@@ -93,25 +93,16 @@ no-resolv
 local=/lan/
 address=/beamer.lan/192.168.10.20
 address=/beamer/192.168.10.20
-dhcp-option=6,192.168.10.20
+# DNS = Pi nur fuer WLAN-Geraete. Der Laptop am Kabel (Markierung "kabel") bekommt keinen DNS vom Pi,
+# damit sein Internet ueber WLAN weiter funktioniert (das Captive Portal unten beantwortet sonst jeden Namen).
+dhcp-option=tag:!kabel,6,192.168.10.20
+dhcp-option=tag:kabel,6
 EOF
-# Captive Portal: nur die Internet-Pruefadressen der Betriebssysteme auf den Pi, die Bedienseite leitet sie auf
-# http://beamer.lan/ um -> Handy meldet "Im Netzwerk anmelden" und oeffnet die Seite. Kein Wildcard, damit der Laptop
-# am Kabel (bekommt ebenfalls den Pi als DNS) sein Internet ueber andere Wege behaelt. Getestet 13.10.2026.
+# Captive Portal: im Pi-WLAN gibt es kein Internet, also jeden Namen mit dem Pi beantworten. Die Bedienseite leitet
+# fremde Namen per 302 auf http://beamer.lan/ um -> Geraet meldet "Im Netzwerk anmelden" und oeffnet die Seite.
+# Grund fuer "alle Namen": manche Geraete fragen eigene Pruefadressen statt der ueblichen (gefunden 15.10.2026).
 cat >/etc/dnsmasq.d/stream2beamer-portal.conf <<'EOF'
-address=/connectivitycheck.gstatic.com/192.168.10.20
-address=/connectivitycheck.android.com/192.168.10.20
-address=/clients3.google.com/192.168.10.20
-address=/clients1.google.com/192.168.10.20
-address=/connectivitycheck.platform.hicloud.com/192.168.10.20
-address=/connectivitycheck.platform.hihonorcloud.com/192.168.10.20
-address=/captive.apple.com/192.168.10.20
-address=/www.msftconnecttest.com/192.168.10.20
-address=/msftconnecttest.com/192.168.10.20
-address=/www.msftncsi.com/192.168.10.20
-address=/detectportal.firefox.com/192.168.10.20
-address=/nmcheck.gnome.org/192.168.10.20
-address=/connectivity-check.ubuntu.com/192.168.10.20
+address=/#/192.168.10.20
 EOF
 systemctl enable dnsmasq >/dev/null 2>&1
 # dnsmasq soll sich nicht als Namensserver des Pi selbst eintragen (sonst hat der Pi kein Internet-DNS)

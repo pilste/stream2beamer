@@ -63,6 +63,30 @@ function checkPi() {
 setInterval(checkPi, 3000)
 checkPi()
 
+// ---------- Pegel: nur solange jemand den Reiter "Ton" offen hat (der ATEM schickt ~170 Meldungen/s, gemessen 15.10.2026) ----------
+const levels = new Map()
+let masterLevel = null, levelsOn = false, levelsWanted = 0
+atem.on('levelChanged', (l) => {
+	if (l.type === 'source') levels.set(`${l.index}/${l.source}`, [l.levels.leftLevel, l.levels.rightLevel])
+	else if (l.type === 'master') masterLevel = [l.levels.leftLevel, l.levels.rightLevel]
+})
+atem.on('disconnected', () => { levelsOn = false; levels.clear(); masterLevel = null })
+setInterval(async () => {
+	const want = connected && Date.now() - levelsWanted < 15000
+	if (want && !levelsOn) {
+		levelsOn = true
+		try { await atem.startFairlightMixerSendLevels() } catch (e) { levelsOn = false }
+	} else if (!want && levelsOn) {
+		levelsOn = false; levels.clear(); masterLevel = null
+		atem.stopFairlightMixerSendLevels().catch(() => {})
+	}
+}, 1000)
+// gebuendelt etwa 8x pro Sekunde an die offenen Seiten
+setInterval(() => {
+	if (!levelsOn || !clients.size) return
+	const d = `event: levels\ndata: ${JSON.stringify({ s: Object.fromEntries(levels), m: masterLevel })}\n\n`
+	for (const res of clients) res.write(d)
+}, 125)
 // ---------- Verlauf der Aufnahme (alle 10 s, bleibt nach dem Stopp bis zur naechsten Aufnahme erhalten) ----------
 const recHistory = { startedAt: null, points: [], errors: [] }
 let recRunning = false
@@ -122,8 +146,9 @@ const server = http.createServer((req, res) => {
 	if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) return send(res, 200, PAGE, 'text/html; charset=utf-8')
 	if (req.method === 'GET' && req.url === '/yuv.js') return send(res, 200, YUV_JS, 'text/javascript; charset=utf-8')
 	// now: Uhr des Pi mitschicken. Der Pi 1 hat keine Echtzeituhr und am Switch kein NTP, die Seite rechnet auf die Geraeteuhr um.
+	if (req.method === 'POST' && req.url === '/api/levels') { levelsWanted = Date.now(); req.resume(); return send(res, 200, { ok: true, on: levelsOn }) }
 	if (req.method === 'GET' && req.url === '/api/rec-history') return send(res, 200, { ...recHistory, now: Date.now() })
-	if (req.method === 'GET' && req.url === '/api/state') return send(res, 200, { ...summary(), targets: TARGETS, qualities: lib.QUALITY })
+	if (req.method === 'GET' && req.url === '/api/state') return send(res, 200, { ...summary(), targets: TARGETS, qualities: lib.QUALITY, presets: lib.PRESET_LABELS })
 	if (req.method === 'GET' && req.url === '/api/events') {
 		res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' })
 		res.write(`data: ${JSON.stringify(summary())}\n\n`)
@@ -146,7 +171,9 @@ const server = http.createServer((req, res) => {
 				}
 				if (!connected) throw new Error('ATEM nicht verbunden')
 				const [method, ...args] = lib.translate(cmd, summary(), TARGETS)
-				await atem[method](...args)
+				// Presets bestehen aus mehreren Befehlen, die nacheinander geschickt werden
+				if (method === '__multi') { for (const [m, ...a] of args[0]) await atem[m](...a) }
+				else await atem[method](...args)
 				send(res, 200, { ok: true })
 			} catch (e) {
 				send(res, 400, { ok: false, error: e.message })

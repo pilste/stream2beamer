@@ -25,7 +25,7 @@ mpv wird **nicht mitgeliefert** und muss einmal selbst heruntergeladen werden. A
 |---|---|---|
 | `pi/pi-atem-bridge.sh` | nginx-RTMP-Empfang und omxplayer per HDMI (Raspberry Pi OS **Buster Lite**). Stream Key egal, 720p 16:9 als Standard, feste Ersatzadresse 192.168.10.20 am Switch ohne Router | [`pi/LIESMICH.md`](pi/LIESMICH.md) |
 | `pi/pi-hotspot.sh` | optional: WLAN-Hotspot „stream2beamer“ per USB-WLAN-Stick, Adressvergabe im ATEM-Netz, Name `beamer.lan`, Captive Portal (Gerät öffnet die Bedienseite nach dem Verbinden) | [`pi/LIESMICH.md`](pi/LIESMICH.md) |
-| `pi/bedienseite/` | Bedienseite im Browser (Handy, Tablet, Laptop): Bild umschalten, Stream, Ton (Fairlight), Aufnahme mit ISO und Live-Verlauf, Standbilder, Pi herunterfahren | [`pi/bedienseite/LIESMICH.md`](pi/bedienseite/LIESMICH.md) |
+| `pi/bedienseite/` | Bedienseite im Browser (Handy, Tablet, Laptop): Bild umschalten, Stream, Ton wie ein Mischpult-Kanalzug (Live-Pegel, 6-Band-Equalizer mit Presets, Gain, Kompressor, Limiter, Gate), Aufnahme mit ISO und Live-Verlauf, Standbilder, Pi herunterfahren | [`pi/bedienseite/LIESMICH.md`](pi/bedienseite/LIESMICH.md) |
 
 ## Netz (Vorschlag ohne Router)
 
@@ -39,7 +39,7 @@ mpv wird **nicht mitgeliefert** und muss einmal selbst heruntergeladen werden. A
 ## Bekannte Grenzen (gemessen)
 
 - **Pi 1:** Standbild-Upload über die Bedienseite nicht möglich (der ATEM trennt die Verbindung), deshalb dort abgeschaltet. Ab Pi 2/3 automatisch an, ungetestet.
-- **Aufnahme mit ISO (4 Kameras):** ca. 117 Mbit/s. Ein getesteter USB-Stick verwarf nach ~19 min Bilder. Für längere ISO-Aufnahmen eine SSD oder Festplatte nehmen.
+- **Aufnahme mit ISO (4 Kameras):** ca. 38–52 GB pro Stunde je nach Bewegung im Bild. Ein getesteter USB-Stick verwarf nach ~19 min Bilder. Eine externe USB-Festplatte (exFAT) lief 1 h ohne Fehler. Für längere ISO-Aufnahmen also Festplatte oder SSD.
 - **Hotspot mit RTL8188CUS-Stick am Pi 1:** ca. 15 Mbit/s, Aussetzer bis 0,7 s. Gut für die Bedienung, für Video zum Laptop besser Kabel.
 - Die Bedienseite hat **kein Passwort**. Sie ist nur aus 192.168.10.0/24 erreichbar. Nur in einem eigenen Netz betreiben.
 

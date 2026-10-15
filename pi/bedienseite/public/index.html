@@ -46,6 +46,23 @@
   .ch .db { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; text-align: right; min-width: 64px; }
   .ch input[type=range] { grid-column: 1 / -1; width: 100%; height: 36px; accent-color: var(--accent); }
   .mix { grid-column: 1 / -1; display: flex; gap: 6px; }
+  .meter { grid-column: 1 / -1; display: grid; gap: 2px; }
+  .bar { position: relative; height: 7px; background: #0d0f11; border-radius: 3px; overflow: hidden; }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--pvw); transition: width .12s linear; }
+  .bar i.yel { background: var(--warn); }
+  .bar i.red { background: var(--pgm); }
+  .bar b { position: absolute; top: 0; bottom: 0; width: 2px; left: 0; background: var(--text); opacity: .8; }
+  .mix .eqbtn { flex: 0 0 auto; padding: 6px 14px; }
+  .eq { grid-column: 1 / -1; background: #16191c; border: 1px solid var(--line); border-radius: 8px; padding: 8px; display: grid; gap: 8px; }
+  .band { display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .band .head { display: flex; gap: 6px; align-items: center; }
+  .band .head span { flex: 1; font-weight: 600; font-size: 14px; }
+  .band .head select { font: inherit; font-size: 13px; padding: 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--btn); color: var(--text); }
+  .band .head button { min-height: 34px; font-size: 13px; padding: 4px 12px; }
+  .band .head button.on { background: var(--accent); color: #1a1a1a; }
+  .sl { display: grid; grid-template-columns: 68px 1fr 74px; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .sl .val { text-align: right; font-variant-numeric: tabular-nums; }
+  .ch .sl input[type=range] { grid-column: auto; height: 28px; width: 100%; accent-color: var(--accent); }
   .mix button { flex: 1; min-height: 40px; font-size: 14px; }
   .mix .on { background: var(--accent); color: #1a1a1a; }
   #toast { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 728px; margin: 0 auto; background: #4a1f22; color: #ffd6d7;
@@ -66,6 +83,13 @@
   #histChart .bad { fill: var(--pgm); }
   .okline { color: #9be3b8; font-weight: 600; }
   .badline { color: #ffb3b5; font-weight: 600; }  .off-btn { width: 100%; color: #ffb3b5; border-color: #6b2a2d; }
+  .hint { font-size: 12px; color: var(--warn); }
+  select.preset { flex: 1; font: inherit; font-size: 14px; padding: 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--btn); color: var(--text); min-width: 0; }
+  .eq > button { width: 100%; }
+  #ask { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 728px; margin: 0 auto; background: var(--panel); border: 2px solid var(--accent);
+         border-radius: 10px; padding: 12px; display: none; gap: 10px; z-index: 10; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+  #ask.show { display: grid; }
+  #ask .on { background: var(--accent); color: #1a1a1a; }
   .hidden { display: none; }
 </style>
 </head>
@@ -172,11 +196,12 @@
   </section>
 </div>
 <div id="toast"></div>
+<div id="ask" role="dialog" aria-live="polite"><div id="askText"></div><div class="mix"><button type="button" id="askYes" class="on">Ja</button><button type="button" id="askNo">Abbrechen</button></div></div>
 <script src="/yuv.js"></script>
 
 <script>
 'use strict'
-let S = {}, TARGETS = {}, QUALITIES = {}
+let S = {}, TARGETS = {}, QUALITIES = {}, PRESETS = {}
 const $ = (id) => document.getElementById(id)
 const GAIN_MIN = -10000, SLIDER_MIN = -60, SLIDER_MAX = 10
 
@@ -231,23 +256,156 @@ function renderBild() {
   $('streamInfo').textContent = info
 }
 
-function channel(name, gain, onGain, mix) {
+// Schieber mit Beschriftung; schickt erst beim Loslassen (onchange), zeigt waehrenddessen den Wert
+function slider(label, min, max, step, value, fmt, onCommit) {
+  const w = document.createElement('label'); w.className = 'sl'
+  const t = document.createElement('span'); t.textContent = label
+  const v = document.createElement('span'); v.className = 'val'; v.textContent = fmt(Number(value))
+  const r = document.createElement('input')
+  r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = value
+  r.oninput = () => { r.dataset.busy = '1'; v.textContent = fmt(Number(r.value)) }
+  r.onchange = () => { onCommit(Number(r.value)); setTimeout(() => { delete r.dataset.busy }, 600) }
+  w.append(t, r, v)
+  return w
+}
+const fmtHz = (f) => (f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 1 : 2).replace('.', ',') + ' kHz' : Math.round(f) + ' Hz')
+const fmtDb = (d) => (d > 0 ? '+' : '') + d.toFixed(1).replace('.', ',') + ' dB'
+const LOG_MIN = Math.log10(20), LOG_MAX = Math.log10(20000)
+
+const openEq = new Set(), openStrip = new Set()
+// Rueckfrage auf der Seite statt confirm(): der abgespeckte Anmelde-Browser von Android (Captive Portal) zeigt
+// confirm() nicht an und wertet es als "Abbrechen" -> Presets/Standard taten nichts (gefunden 15.10.2026)
+let askAction = null
+function ask(question, onYes) {
+  $('askText').textContent = question; askAction = onYes; $('ask').classList.add('show')
+}
+$('askYes').onclick = () => { const f = askAction; askAction = null; $('ask').classList.remove('show'); if (f) f() }
+$('askNo').onclick = () => { askAction = null; $('ask').classList.remove('show') }
+
+// Auswahlliste "Preset laden": ruft nach Rueckfrage den Befehl mit dem gewaehlten Preset auf
+function presetSelect(labels, title, onPick) {
+  const sel = document.createElement('select'); sel.className = 'preset'; sel.setAttribute('aria-label', title)
+  const first = document.createElement('option'); first.value = ''; first.textContent = title; sel.append(first)
+  for (const [k, l] of Object.entries(labels || {})) { const o = document.createElement('option'); o.value = k; o.textContent = l; sel.append(o) }
+  sel.onchange = () => { const k = sel.value; sel.value = ''; sel.blur(); if (k) ask(`„${labels[k]}“ laden? Die aktuellen Werte werden überschrieben.`, () => onPick(k)) }
+  return sel
+}
+function hint(text) { const h = document.createElement('div'); h.className = 'hint'; h.textContent = text; return h }
+
+function eqPanel(eq, target) {
+  const p = document.createElement('div'); p.className = 'eq'
+  const head = document.createElement('div'); head.className = 'mix'
+  head.append(
+    button(eq.enabled ? 'EQ ein' : 'EQ aus', '', eq.enabled, () => act({ cmd: 'eq', ...target, enabled: !eq.enabled })),
+    button('Standard', '', false, () => ask('Equalizer auf Standard zurücksetzen?', () => act({ cmd: 'eq-reset', ...target }))),
+    presetSelect(PRESETS.eq, 'Preset …', (k) => act({ cmd: 'eq-preset', ...target, preset: k })))
+  p.append(head)
+  if (!eq.enabled) p.append(hint('Der Equalizer ist aus – Änderungen wirken erst mit „EQ ein“.'))
+  for (const b of eq.bands) {
+    const band = (props) => act({ cmd: 'eq-band', ...target, band: b.band, ...props })
+    const row = document.createElement('div'); row.className = 'band'
+    const h = document.createElement('div'); h.className = 'head'
+    const nm = document.createElement('span'); nm.textContent = `Band ${b.band + 1}`
+    h.append(nm)
+    if (b.shapes.length > 1) {
+      const sel = document.createElement('select'); sel.setAttribute('aria-label', `Filterform Band ${b.band + 1}`)
+      for (const s of b.shapes) { const o = document.createElement('option'); o.value = s.id; o.textContent = s.name; if (s.id === b.shape) o.selected = true; sel.append(o) }
+      sel.onchange = () => band({ shape: Number(sel.value) })
+      h.append(sel)
+    }
+    h.append(button(b.on ? 'an' : 'aus', '', b.on, () => band({ on: !b.on })))
+    row.append(h)
+    row.append(slider('Freq.', LOG_MIN, LOG_MAX, 0.01, Math.log10(Math.max(20, b.freq)), (x) => fmtHz(Math.pow(10, x)), (x) => band({ freq: Math.round(Math.pow(10, x)) })))
+    // Hoch-/Tiefpass (16/2) haben keine Verstaerkung, Guete nur bei Glocke/Kerbe (4/8)
+    if (b.shape !== 2 && b.shape !== 16) row.append(slider('Pegel', -20, 20, 0.5, b.gain / 100, fmtDb, (x) => band({ gain: Math.round(x * 100) })))
+    if (b.shape === 4 || b.shape === 8) row.append(slider('Güte', 0.3, 10.3, 0.1, b.q / 100, (x) => x.toFixed(1).replace('.', ','), (x) => band({ q: Math.round(x * 100) })))
+    // Warum eine Aenderung nicht hoerbar ist (haeufigster Fall: Pegel 0 dB)
+    if (!b.on) row.append(hint('Band ist aus – erst „an“ tippen.'))
+    else if (b.gain === 0 && b.shape !== 2 && b.shape !== 16 && b.shape !== 8) row.append(hint('Pegel steht auf 0 dB – die Frequenz wirkt erst, wenn du den Pegel verstellst.'))
+    p.append(row)
+  }
+  return p
+}
+
+// ---------- Kanalzug: Eingang und Dynamik ----------
+const fmtMs = (v) => (v >= 100 ? Math.round(v) : v.toFixed(1).replace('.', ',')) + ' ms'
+const fmtRatio = (r) => r.toFixed(1).replace('.', ',') + ':1'
+function stageBox(title, d, stage, target, fields) {
+  const box = document.createElement('div'); box.className = 'band'
+  const h = document.createElement('div'); h.className = 'head'
+  const nm = document.createElement('span'); nm.textContent = title
+  h.append(nm)
+  const send = (props) => act({ cmd: 'dyn', ...target, stage, ...props })
+  if (stage === 'exp') h.append(button(d.gate ? 'Gate' : 'Expander', '', d.gate, () => send({ gate: !d.gate })))
+  h.append(button(d.on ? 'an' : 'aus', '', d.on, () => send({ on: !d.on })))
+  box.append(h)
+  for (const [key, label, lo, hi, step, fmt, scale] of fields) {
+    if (d[key] === undefined) continue
+    box.append(slider(label, lo, hi, step, d[key] / scale, fmt, (x) => send({ [key]: Math.round(x * scale) })))
+  }
+  if (!d.on) box.append(hint('Stufe ist aus – Werte wirken erst mit „an“.'))
+  return box
+}
+function stripPanel(a, target, isMaster) {
+  const p = document.createElement('div'); p.className = 'eq'
+  const head = document.createElement('div'); head.className = 'mix'
+  head.append(
+    button('Dynamik Standard', '', false, () => ask('Dynamik (Expander, Kompressor, Limiter) auf Standard zurücksetzen?', () => act({ cmd: 'dyn-reset', ...target }))),
+    presetSelect(PRESETS.dyn, 'Preset …', (k) => act({ cmd: 'dyn-preset', ...target, preset: k })))
+  p.append(head)
+  const strip = (props) => act({ cmd: 'strip', ...target, ...props })
+  if (isMaster) {
+    p.append(button(a.ftbFollow ? 'Ton folgt Schwarzblende: an' : 'Ton folgt Schwarzblende: aus', '', a.ftbFollow, () => act({ cmd: 'master-ftb', ...target, on: !a.ftbFollow })))
+  } else {
+    const s = a.strip
+    const sec = document.createElement('div'); sec.className = 'band'
+    const t = document.createElement('div'); t.className = 'head'; const tn = document.createElement('span'); tn.textContent = 'Eingang'; t.append(tn)
+    if (s.levels.length > 1) for (const [id, l] of [[1, 'Mikro'], [2, 'Line']]) if (s.levels.includes(id)) t.append(button(l, '', s.level === id, () => act({ cmd: 'input-level', ...target, level: id })))
+    sec.append(t)
+    sec.append(slider('Gain', -40, 6, 0.5, Math.max(-40, s.inGain / 100), fmtDb, (x) => strip({ inGain: Math.round(x * 100) })))
+    sec.append(slider('Balance', -100, 100, 1, s.balance / 100, (x) => (x === 0 ? 'Mitte' : x < 0 ? `L ${-x}` : `R ${x}`), (x) => strip({ balance: Math.round(x * 100) })))
+    if (s.maxDelay > 0) sec.append(slider('Verzög.', 0, s.maxDelay, 1, s.delay, (x) => `${x} Bild${x === 1 ? '' : 'er'}`, (x) => strip({ delay: x })))
+    p.append(sec)
+  }
+  const d = a.dyn
+  if (d) {
+    p.append(slider('Aufholen', 0, 20, 0.5, d.makeUp / 100, fmtDb, (x) => strip({ makeUp: Math.round(x * 100) })))
+    const T = ['threshold', 'Schwelle', -50, 0, 0.5, fmtDb, 100], ATK = (lo, hi) => ['attack', 'Attack', lo, hi, 0.1, fmtMs, 100]
+    const HOLD = ['hold', 'Hold', 0, 327, 1, fmtMs, 100], REL = ['release', 'Release', 50, 327, 1, fmtMs, 100]
+    if (d.exp) p.append(stageBox('Expander / Gate', d.exp, 'exp', target, [T, ['range', 'Bereich', 0, 60, 0.5, (x) => x.toFixed(1).replace('.', ',') + ' dB', 100], ['ratio', 'Verhältnis', 1.1, 3, 0.1, fmtRatio, 100], ATK(0.5, 100), HOLD, REL]))
+    if (d.cmp) p.append(stageBox('Kompressor', d.cmp, 'cmp', target, [T, ['ratio', 'Verhältnis', 1.2, 20, 0.1, fmtRatio, 100], ATK(0.7, 100), HOLD, REL]))
+    if (d.lim) p.append(stageBox('Limiter', d.lim, 'lim', target, [['threshold', 'Schwelle', -30, 0, 0.5, fmtDb, 100], ATK(0.7, 30), HOLD, REL]))
+  }
+  return p
+}
+
+function channel(name, gain, onGain, mix, key, eq, target, a, isMaster) {
   const d = document.createElement('div'); d.className = 'ch'
   const n = document.createElement('div'); n.className = 'name'; n.textContent = name
   const db = document.createElement('div'); db.className = 'db'; db.textContent = dbText(gain)
+  // Live-Pegel: zwei Balken (links/rechts), werden von updateMeters() gefuellt
+  const m = document.createElement('div'); m.className = 'meter'; m.dataset.key = key
+  m.innerHTML = '<div class="bar"><i></i><b></b></div><div class="bar"><i></i><b></b></div>'
   const r = document.createElement('input')
   r.type = 'range'; r.min = SLIDER_MIN; r.max = SLIDER_MAX; r.step = 0.5; r.value = toSlider(gain)
   r.setAttribute('aria-label', 'Lautstärke ' + name)
   r.oninput = () => { r.dataset.busy = '1'; db.textContent = dbText(fromSlider(r.value)) }
   r.onchange = () => { onGain(fromSlider(r.value)); setTimeout(() => { delete r.dataset.busy }, 600) }
-  d.append(n, db, r)
-  if (mix) d.append(mix)
+  d.append(n, db, m, r)
+  const row = mix || document.createElement('div'); row.className = 'mix'
+  if (eq) row.append(button(eq.enabled ? 'EQ' : 'EQ (aus)', 'eqbtn', openEq.has(key), () => { openEq.has(key) ? openEq.delete(key) : openEq.add(key); renderTon() }))
+  if (a && (a.dyn || a.strip)) row.append(button('Kanal', 'eqbtn', openStrip.has(key), () => { openStrip.has(key) ? openStrip.delete(key) : openStrip.add(key); renderTon() }))
+  if (row.children.length) d.append(row)
+  if (eq && openEq.has(key)) d.append(eqPanel(eq, target))
+  if (a && openStrip.has(key)) d.append(stripPanel(a, target, isMaster))
   return d
 }
 
 function renderTon() {
-  // nicht neu aufbauen, solange ein Schieber bewegt wird
-  if (document.querySelector('input[type=range][data-busy]')) return
+  // nicht neu aufbauen, solange ein Schieber bewegt oder eine Auswahl offen ist
+  if (document.querySelector('#ton input[type=range][data-busy]')) return
+  const ae = document.activeElement
+  if (ae && ae.tagName === 'SELECT' && $('ton').contains(ae)) return
   const box = $('audio'); box.replaceChildren()
   for (const a of S.audio || []) {
     const mix = document.createElement('div'); mix.className = 'mix'
@@ -256,12 +414,39 @@ function renderTon() {
       mix.append(button(o === 'afv' ? 'AFV' : o === 'ein' ? 'Ein' : 'Aus', '', a.mix === o, () => act({ cmd: 'mix', input: a.input, source: a.source, option: o })))
     }
     const label = a.source.startsWith('-') ? a.name : `${a.name} (${a.source})`
-    box.append(channel(label, a.gain, (g) => act({ cmd: 'fader', input: a.input, source: a.source, gain: g }), mix))
+    box.append(channel(label, a.gain, (g) => act({ cmd: 'fader', input: a.input, source: a.source, gain: g }), mix,
+      `${a.input}/${a.source}`, a.eq, { input: a.input, source: a.source }, a, false))
   }
   if (!(S.audio || []).length) box.textContent = 'Keine Fairlight-Tonquellen gemeldet.'
   const m = $('master'); m.replaceChildren()
-  if (S.master) m.append(channel('Master', S.master.gain, (g) => act({ cmd: 'master', gain: g })))
+  if (S.master) m.append(channel('Master', S.master.gain, (g) => act({ cmd: 'master', gain: g }), null, 'master', S.master.eq, { source: 'master' }, S.master, true))
+  if (lastLevels) updateMeters(lastLevels)
 }
+
+// ---------- Live-Pegel ----------
+// Werte in Hundertstel dB; Anzeige von -60 dB bis 0 dB, gruen / ab -18 dB gelb / ab -6 dB rot, Spitzenmarke 1,5 s
+let lastLevels = null
+const peaks = {}
+const dbToPct = (v) => { const d = v / 100; return d <= -60 ? 0 : Math.min(100, ((d + 60) / 60) * 100) }
+function updateMeters(L) {
+  lastLevels = L
+  if ($('ton').classList.contains('hidden')) return
+  const now = Date.now()
+  document.querySelectorAll('#ton .meter').forEach((m) => {
+    const v = m.dataset.key === 'master' ? L.m : L.s[m.dataset.key]
+    for (let c = 0; c < 2; c++) {
+      const lv = v ? v[c] : -10000, pct = dbToPct(lv), bar = m.children[c]
+      bar.firstChild.style.width = pct + '%'
+      bar.firstChild.className = lv > -600 ? 'red' : lv > -1800 ? 'yel' : ''
+      const k = m.dataset.key + c, p = peaks[k]
+      if (!p || pct >= p.v || now - p.t > 1500) peaks[k] = { v: pct, t: now }
+      bar.lastChild.style.left = `calc(${peaks[k].v}% - 2px)`
+    }
+  })
+}
+// Pegel nur anfordern, solange der Reiter "Ton" sichtbar ist (schont den Pi)
+function pingLevels() { if (!$('ton').classList.contains('hidden') && S.connected) fetch('/api/levels', { method: 'POST' }).catch(() => {}) }
+setInterval(pingLevels, 5000)
 
 function render() {
   $('model').textContent = S.model || 'ATEM'
@@ -279,6 +464,7 @@ const TABS = [['tabBild', 'bild'], ['tabTon', 'ton'], ['tabRec', 'rec'], ['tabMe
 for (const [tab, view] of TABS) {
   $(tab).onclick = () => {
     setTimeout(loadHistory, 0)
+    setTimeout(pingLevels, 0)
     for (const [t2, v2] of TABS) { $(t2).classList.toggle('on', t2 === tab); $(v2).classList.toggle('hidden', v2 !== view) }
   }
 }
@@ -394,7 +580,7 @@ function renderMedia() {
     const inMp = p.type === 'still' && p.still === s.index
     row.append(n,
       button(inMp ? 'in MP1' : 'In MP1', '', inMp, () => act({ cmd: 'mp-still', index: s.index })),
-      button('Löschen', 'del', false, () => { if (confirm(`Bild ${s.index + 1} „${s.name}“ im ATEM löschen?`)) act({ cmd: 'still-clear', index: s.index }) }))
+      button('Löschen', 'del', false, () => ask(`Bild ${s.index + 1} „${s.name}“ im ATEM löschen?`, () => act({ cmd: 'still-clear', index: s.index }))))
     box.append(row)
   }
   if (!box.children.length) box.textContent = 'Keine Standbilder im ATEM.'
@@ -440,8 +626,8 @@ $('upBtn').onclick = async () => {
     $('upInfo').textContent = 'Nicht hochgeladen: ' + e.message
   } finally { btn.disabled = false }
 }
-$('offBtn').onclick = async () => {
-  if (!confirm('Raspberry Pi jetzt herunterfahren?\n\nDer Beamer-Ausgang und diese Seite sind danach weg. Strom erst ziehen, wenn die grüne LED am Pi nicht mehr blinkt (ca. 30 s).')) return
+$('offBtn').onclick = () => ask('Raspberry Pi jetzt herunterfahren? Beamer-Ausgang und diese Seite sind danach weg. Strom erst ziehen, wenn die grüne LED am Pi nicht mehr blinkt (ca. 30 s).', powerOff)
+async function powerOff() {
   try {
     const j = await (await fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'poweroff' }) })).json()
     if (!j.ok) return toast(j.error || 'Fehler')
@@ -449,10 +635,11 @@ $('offBtn').onclick = async () => {
     $('offInfo').textContent = 'Pi fährt herunter. In etwa 30 Sekunden (grüne LED aus) kann der Strom weg.'
   } catch (e) { toast('Keine Verbindung zum Pi') }
 }
-fetch('/api/state').then((r) => r.json()).then((j) => { TARGETS = j.targets || {}; QUALITIES = j.qualities || {}; S = j; render() }).catch(() => {})
+fetch('/api/state').then((r) => r.json()).then((j) => { TARGETS = j.targets || {}; QUALITIES = j.qualities || {}; PRESETS = j.presets || {}; S = j; render() }).catch(() => {})
 function listen() {
   const es = new EventSource('/api/events')
   es.onmessage = (e) => { S = JSON.parse(e.data); render() }
+  es.addEventListener('levels', (e) => updateMeters(JSON.parse(e.data)))
   es.onerror = () => { $('conn').textContent = 'Pi nicht erreichbar'; $('conn').className = 'pill bad' }
 }
 listen()

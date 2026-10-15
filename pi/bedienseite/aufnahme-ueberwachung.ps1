@@ -38,7 +38,8 @@ $z = @(
     "Ende: $grund"
     "Start erkannt: $(if ($gestartet) { $gestartet.ToString('HH:mm:ss') } else { 'nein' })"
     "Letzte gemeldete Dauer: $(if ($letzte) { $letzte.duration } else { '-' })"
-    "Kleinste Restzeit: $(if ($minRest -ne $null) { '{0:N0} min' -f ($minRest / 60) } else { '-' })"
+    # in Stunden und Minuten; vorher "{0:N0} min" ergab mit deutschem Tausenderpunkt "9,714 min" statt 9714 min
+    "Kleinste Restzeit: $(if ($minRest -ne $null) { '{0} h {1:D2} min' -f [math]::Floor($minRest / 3600), [int][math]::Floor(($minRest % 3600) / 60) } else { '-' })"
     "Fehler waehrend der Aufnahme: $(if ($fehler.Count) { ($fehler.GetEnumerator() | ForEach-Object { "$($_.Key) ($($_.Value)x)" }) -join ', ' } else { 'keine' })"
     "Pi nicht erreichbar (Abfragen): $ausfaelle"
     "Protokoll: $csv"
